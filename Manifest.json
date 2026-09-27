@@ -1,0 +1,11 @@
+{
+  "type": "Mod",
+  "file": "MyriadLife.json",
+  "parentLoader": "eternal.future.kernelloader",
+  "resources": "Resources",
+  "modloader": { "type": "null" },
+  "plugins": { "type": "null" },
+  "tefkernel": {
+    "minVersion": "1.0.2-patchlib-struct-value"
+  }
+}

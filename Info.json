@@ -1,0 +1,119 @@
+{
+  "pkgId": "liuxin.myriadlife",
+  "name": "万灵繁生",
+  "author": "liuxin",
+  "version": "1.0.0",
+  "versionCode": 202609220,
+  "brieflyDescribe": "提高生物生成上限并缩短生成间隔。",
+  "description": "让世界中的生物更加活跃：提高默认生成上限并缩短生成间隔。仅支持 Android ARM64。",
+  "features": ["MECHANICS_CHANGE", "QUALITY_OF_LIFE"],
+  "sizeCategory": "TINY",
+  "targetGameVersion": "1.4.5.8.6",
+  "minGameVersion": "1.4.4.0",
+  "maxGameVersion": "1.4.5.8.6",
+  "support": {
+    "android": { "arm64": true, "arm": false, "x64": false, "x86": false },
+    "windows": { "arm64": false, "arm": false, "x64": false, "x86": false },
+    "linux": { "arm64": false, "arm": false, "x64": false, "x86": false },
+    "mac": { "arm64": false, "arm": false, "x64": false, "x86": false },
+    "ios": { "arm64": false, "arm": false, "x64": false, "x86": false }
+  },
+  "dependence": [],
+  "conflicts": [],
+  "stableVerified": false,
+  "experimental": true,
+  "deprecated": false,
+  "hasExtendedContent": false,
+  "settings": [
+    {
+      "key": "enable_normal",
+      "title": "启用普通敌怪增强",
+      "description": "提高自然生成的普通敌怪数量并缩短生成间隔。",
+      "type": "SWITCH",
+      "defaultValue": true
+    },
+    {
+      "key": "spawn_multiplier",
+      "title": "普通敌怪倍率",
+      "description": "普通敌怪生成上限和生成频率倍率。",
+      "type": "INTEGER",
+      "defaultValue": 5,
+      "min": 1,
+      "max": 20,
+      "step": 1,
+      "unit": "×"
+    },
+    {
+      "key": "enable_boss",
+      "title": "启用 Boss 倍率",
+      "description": "允许 Boss 生成时额外生成同类 Boss。",
+      "type": "SWITCH",
+      "defaultValue": false
+    },
+    {
+      "key": "boss_multiplier",
+      "title": "Boss 生成倍率",
+      "description": "Boss 生成时的数量倍率。",
+      "type": "INTEGER",
+      "defaultValue": 5,
+      "min": 1,
+      "max": 5,
+      "step": 1,
+      "unit": "×"
+    },
+    {
+      "key": "enable_event",
+      "title": "启用事件敌怪倍率",
+      "description": "允许事件敌怪生成时额外生成同类敌怪。",
+      "type": "SWITCH",
+      "defaultValue": false
+    },
+    {
+      "key": "event_multiplier",
+      "title": "事件敌怪倍率",
+      "description": "事件及其他非友好、非 Boss 生物的生成倍率。",
+      "type": "INTEGER",
+      "defaultValue": 5,
+      "min": 1,
+      "max": 20,
+      "step": 1,
+      "unit": "×"
+    },
+    {
+      "key": "enable_friendly",
+      "title": "启用友好生物倍率",
+      "description": "允许友好生物和城镇 NPC 生成时额外生成同类生物。",
+      "type": "SWITCH",
+      "defaultValue": false
+    },
+    {
+      "key": "friendly_multiplier",
+      "title": "友好生物倍率",
+      "description": "友好生物和城镇 NPC 的生成倍率。",
+      "type": "INTEGER",
+      "defaultValue": 1,
+      "min": 1,
+      "max": 20,
+      "step": 1,
+      "unit": "×"
+    },
+    {
+      "key": "enable_total_limit",
+      "title": "启用全局生物上限",
+      "description": "限制游戏中同时存在的 NPC 总数。游戏底层最多支持 200。",
+      "type": "SWITCH",
+      "defaultValue": false
+    },
+    {
+      "key": "total_npc_limit",
+      "title": "全局生物总上限",
+      "description": "游戏中同时存在的 NPC 总数上限。",
+      "type": "INTEGER",
+      "defaultValue": 200,
+      "min": 20,
+      "max": 200,
+      "step": 1,
+      "unit": "个"
+    }
+  ]
+}
