@@ -17,7 +17,9 @@ Boss 召唤倍率开关和倍率可在 TEFManager 设置中调整（1–5 倍）
 
 ## GitHub Actions 编译
 
-这是一个可直接上传到 GitHub 的完整工程，不需要提交本地 `build-*` 目录。新建 GitHub 仓库后上传本目录全部文件，推送到 `main` 分支，Actions 会自动安装 Android SDK、NDK 27.2 和 CMake 3.22.1，编译 `arm64-v8a`，并生成与 TEFManager 发布包一致的 ZIP：
+这是一个仓库根目录完整、可由 GitHub Actions 编译的工程。把本压缩包解压后，将其中的全部文件和 `.github` 文件夹上传到 GitHub 仓库根目录（不要再套一层 `MyriadLife-main` 文件夹），提交到 `main` 或 `master` 分支。也可以在仓库的 **Actions → Build Android ARM64 Mod → Run workflow** 手动启动。
+
+工作流会安装 Android SDK、NDK 27.2、CMake 3.22.1 和 Ninja，编译 `arm64-v8a`，并检查生成的共享库确实是 AArch64。随后生成适用于 TEFManager 的安装 ZIP：
 
 ```text
 Info.json
@@ -26,7 +28,7 @@ MyriadLife.json
 Resources/lib/libMyriadLife.android.arm64.so
 ```
 
-编译完成后，在 GitHub 的 Actions → Build Android ARM64 Mod → Artifacts 下载 `MyriadLife-android-arm64`。
+编译完成后，在对应运行记录页面底部的 **Artifacts** 下载 `MyriadLife-android-arm64`，解压后即可获得模组安装 ZIP。
 
 本地手动编译时，需要 Android NDK 和 CMake：
 

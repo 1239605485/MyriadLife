@@ -2,8 +2,12 @@ name: Build Android ARM64 Mod
 
 on:
   push:
+    branches: ["main", "master"]
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -20,6 +24,8 @@ jobs:
         run: |
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platform-tools" "platforms;android-21" "ndk;27.2.12479018" "cmake;3.22.1"
+          sudo apt-get update
+          sudo apt-get install -y ninja-build zip
 
       - name: Locate Android toolchain
         shell: bash
@@ -38,7 +44,14 @@ jobs:
 
       - name: Build
         shell: bash
-        run: "$ANDROID_CMAKE_HOME/bin/cmake" --build build-arm64 --config Release
+        run: |
+          "$ANDROID_CMAKE_HOME/bin/cmake" --build build-arm64 --config Release
+
+      - name: Verify ARM64 library
+        shell: bash
+        run: |
+          test -s build-arm64/libMyriadLife.so
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build-arm64/libMyriadLife.so | grep -q 'AArch64'
 
       - name: Assemble package
         shell: bash
