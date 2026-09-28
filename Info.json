@@ -2,21 +2,49 @@
   "pkgId": "liuxin.myriadlife",
   "name": "万灵繁生",
   "author": "liuxin",
-  "version": "1.0.1",
+  "version": "1.0.12",
   "versionCode": 202609280,
   "brieflyDescribe": "提高生物生成上限并缩短生成间隔。",
   "description": "让世界中的生物更加活跃：提高默认生成上限并缩短生成间隔。仅支持 Android ARM64。",
-  "features": ["MECHANICS_CHANGE", "QUALITY_OF_LIFE"],
+  "features": [
+    "MECHANICS_CHANGE",
+    "QUALITY_OF_LIFE"
+  ],
   "sizeCategory": "TINY",
   "targetGameVersion": "1.4.5.8.6",
   "minGameVersion": "1.4.4.0",
   "maxGameVersion": "1.4.5.8.6",
   "support": {
-    "android": { "arm64": true, "arm": false, "x64": false, "x86": false },
-    "windows": { "arm64": false, "arm": false, "x64": false, "x86": false },
-    "linux": { "arm64": false, "arm": false, "x64": false, "x86": false },
-    "mac": { "arm64": false, "arm": false, "x64": false, "x86": false },
-    "ios": { "arm64": false, "arm": false, "x64": false, "x86": false }
+    "android": {
+      "arm64": true,
+      "arm": false,
+      "x64": false,
+      "x86": false
+    },
+    "windows": {
+      "arm64": false,
+      "arm": false,
+      "x64": false,
+      "x86": false
+    },
+    "linux": {
+      "arm64": false,
+      "arm": false,
+      "x64": false,
+      "x86": false
+    },
+    "mac": {
+      "arm64": false,
+      "arm": false,
+      "x64": false,
+      "x86": false
+    },
+    "ios": {
+      "arm64": false,
+      "arm": false,
+      "x64": false,
+      "x86": false
+    }
   },
   "dependence": [],
   "conflicts": [],
@@ -44,20 +72,20 @@
       "unit": "×"
     },
     {
-      "key": "enable_boss",
+      "key": "boss_double",
       "title": "启用 Boss 倍率",
-      "description": "绕过已有 Boss 时的召唤限制，并通过玩家的 Boss 召唤入口重复触发。",
+      "description": "解除已有 Boss 时的召唤物限制，并允许 Boss 生成时额外生成同类 Boss。",
       "type": "SWITCH",
       "defaultValue": true
     },
     {
       "key": "boss_multiplier",
       "title": "Boss 生成倍率",
-      "description": "Boss 生成时的数量倍率。",
+      "description": "Boss 生成时的数量倍率，最多 10 只。",
       "type": "INTEGER",
       "defaultValue": 2,
       "min": 1,
-      "max": 5,
+      "max": 10,
       "step": 1,
       "unit": "×"
     },

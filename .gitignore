@@ -1,6 +1,0 @@
-build-*/
-out/
-package/
-*.so
-*.dll
-*.dylib
