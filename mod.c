@@ -22,8 +22,6 @@ static patch_handle_t g_npc_boss_field = PATCH_NULL;
 static patch_handle_t g_npc_friendly_field = PATCH_NULL;
 static patch_handle_t g_npc_town_field = PATCH_NULL;
 static patch_handle_t g_item_type_field = PATCH_NULL;
-static patch_handle_t g_player_inventory_field = PATCH_NULL;
-static patch_handle_t g_player_selected_item_field = PATCH_NULL;
 static patch_handle_t g_new_npc_method = PATCH_NULL;
 static patch_handle_t g_spawn_on_player_method = PATCH_NULL;
 static patch_handle_t g_summon_item_check_method = PATCH_NULL;
@@ -51,9 +49,9 @@ static bool g_applied = false;
 
 static kernel_mod_info_t g_info = {
     .pkg_id = "liuxin.myriadlife",
-    .version_code = 202609285,
+    .version_code = 202609286,
     .api_version = 1,
-    .version = "1.1.1"
+    .version = "1.1.2"
 };
 
 static void log_msg(mod_log_level_t level, const char* fmt, ...) {
@@ -226,30 +224,16 @@ static bool is_boss_summon_item(int item_type) {
     }
 }
 
-/* ItemCheck_CheckCanUse_Inner() has no arguments; its Player instance owns
- * selectedItem and inventory. Inspect that held item before bypassing the
- * active-Boss check.
- */
+/* The reference mod reads Item.type from args[0] in this callback. */
 static bool boss_summon_can_use_prefix(patch_handle_t instance, void** args,
                                        const patch_method_signature_t* signature,
                                        void* result) {
-    (void)args;
+    (void)instance;
     (void)signature;
-    if (!g_enable_boss || !instance || !result || !g_item_type_field ||
-        !g_player_inventory_field || !g_player_selected_item_field)
+    if (!g_enable_boss || !args || !args[0] || !result || !g_item_type_field)
         return true;
 
-    patch_handle_t inventory = PATCH_NULL;
-    int selected_item = -1;
-    patchlib_field_get_value(g_player_inventory_field, instance, &inventory);
-    patchlib_field_get_value(g_player_selected_item_field, instance, &selected_item);
-    if (!inventory || selected_item < 0 ||
-        (size_t)selected_item >= patchlib_array_length(inventory))
-        return true;
-
-    patch_handle_t item = PATCH_NULL;
-    if (!patchlib_array_at(inventory, (size_t)selected_item, &item) || !item)
-        return true;
+    patch_handle_t item = (patch_handle_t)args[0];
     int item_type = 0;
     patchlib_field_get_value(g_item_type_field, item, &item_type);
     if (!is_boss_summon_item(item_type)) return true;
@@ -295,30 +279,20 @@ static void init_mod(kernel_mod_handle_t* handle) {
         patch_handle_t item_class = patchlib_type_get_type("Terraria", "Item");
         if (item_class) g_item_type_field = patchlib_type_get_field(item_class, "type");
         if (player_type) {
-            g_player_inventory_field = patchlib_type_get_field(player_type, "inventory");
-            g_player_selected_item_field = patchlib_type_get_field(player_type, "selectedItem");
-        }
-        if (player_type) {
             g_summon_item_check_method =
                 patchlib_type_get_method_by_param_count(player_type, "SummonItemCheck", 1);
             patch_handle_t can_use_method =
                 patchlib_type_get_method_by_param_count(
-                    player_type, "ItemCheck_CheckCanUse_Inner", 0);
-            if (g_summon_item_check_method && can_use_method && g_item_type_field &&
-                g_player_inventory_field && g_player_selected_item_field &&
-                patchlib_method_is_instance(g_summon_item_check_method) &&
+                    player_type, "ItemCheck_CheckCanUse_Inner", 1);
+            if (g_summon_item_check_method &&
+                patchlib_method_is_instance(g_summon_item_check_method)) {
+                g_boss_summon_hook = patchlib_install_prepost_hook(
+                    g_summon_item_check_method, NULL, boss_summon_postfix);
+            }
+            if (can_use_method && g_item_type_field &&
                 patchlib_method_is_instance(can_use_method)) {
                 g_boss_can_use_hook = patchlib_install_prepost_hook(
                     can_use_method, boss_summon_can_use_prefix, NULL);
-                if (g_boss_can_use_hook != PATCH_HOOK_INVALID_ID) {
-                    g_boss_summon_hook = patchlib_install_prepost_hook(
-                        g_summon_item_check_method, NULL, boss_summon_postfix);
-                }
-                if (g_boss_summon_hook == PATCH_HOOK_INVALID_ID &&
-                    g_boss_can_use_hook != PATCH_HOOK_INVALID_ID) {
-                    patchlib_uninstall_hook(g_boss_can_use_hook);
-                    g_boss_can_use_hook = PATCH_HOOK_INVALID_ID;
-                }
             }
             patchlib_free(can_use_method);
             patchlib_free(player_type);
@@ -331,7 +305,9 @@ static void init_mod(kernel_mod_handle_t* handle) {
                     g_boss_multiplier);
         } else {
             log_msg(MOD_LOG_LEVEL_WARNING,
-                    "Boss召唤翻倍未启用: Player methods or inventory fields unavailable");
+                    "Boss召唤部分 Hook 缺失: can_use=%s summon=%s",
+                    g_boss_can_use_hook != PATCH_HOOK_INVALID_ID ? "ok" : "missing",
+                    g_boss_summon_hook != PATCH_HOOK_INVALID_ID ? "ok" : "missing");
         }
     } else {
         log_msg(MOD_LOG_LEVEL_INFO, "Boss召唤翻倍关闭");
@@ -401,8 +377,6 @@ static void cleanup_mod(kernel_mod_handle_t* handle) {
     patchlib_free(g_npc_boss_field);
     patchlib_free(g_npc_friendly_field);
     patchlib_free(g_npc_town_field);
-    patchlib_free(g_player_inventory_field);
-    patchlib_free(g_player_selected_item_field);
     patchlib_free(g_new_npc_method);
     patchlib_free(g_spawn_on_player_method);
     patchlib_free(g_item_type_field);
@@ -417,8 +391,6 @@ static void cleanup_mod(kernel_mod_handle_t* handle) {
     g_boss_summon_hook = PATCH_HOOK_INVALID_ID;
     g_boss_can_use_hook = PATCH_HOOK_INVALID_ID;
     g_item_type_field = PATCH_NULL;
-    g_player_inventory_field = PATCH_NULL;
-    g_player_selected_item_field = PATCH_NULL;
     g_summon_item_check_method = PATCH_NULL;
     g_in_boss_duplicate = false;
     g_base_max_spawns = 0;

@@ -2,8 +2,8 @@
   "pkgId": "liuxin.myriadlife",
   "name": "万灵繁生",
   "author": "liuxin",
-  "version": "1.1.1",
-  "versionCode": 202609285,
+  "version": "1.1.2",
+  "versionCode": 202609286,
   "brieflyDescribe": "解除 Boss 召唤限制并按倍率重复召唤。",
   "description": "参考强制召唤模组的 Player 检查与召唤入口，在已知 Boss 召唤物上放行限制并按设定倍率召唤。仅支持 Android ARM64。",
   "features": [
