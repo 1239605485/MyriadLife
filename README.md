@@ -1,32 +1,35 @@
-# 万灵繁生 v1.0.14（Boss 召唤诊断版）
+# 万灵繁生 v1.1.0（Boss 召唤重构版）
 
-本版本基于 v1.0.13 崩溃隔离工程，仅增加一个可选诊断 Hook，目的是区分闪退发生在 Boss 召唤 Hook 安装/触发阶段，还是后续重复召唤逻辑阶段。
+Android ARM64 / Terraria 1.4.5.8.x / TEFKernel 工程。
 
-## 本版本行为
+## Boss 召唤实现
 
-- 普通敌怪生成设置沿用 v1.0.13。
-- “启用 Boss 召唤诊断”默认关闭。
-- 开启后只在 `Player.SummonItemCheck` 前写入 `[BOSS_SUMMON_PROBE]` 日志，然后继续执行原版方法。
-- 不重复调用 `SummonItemCheck`，不生成额外 Boss，也不绕过原版 Boss 召唤限制。
-- Boss 倍率设置在本诊断版本中不生效。
-- 不使用此前导致闪退的 v16 源码。
+此版本按“解除 Boss 召唤检查，再重复走原版召唤物入口”的路线实现，参考用户提供的“强制召唤”ARM64 模组。对该模组二进制的静态检查确认其目标包含 `Player.SummonItemCheck`、`Player.ItemCheck_CheckCanUse_Inner` 和 `Item.type`。本工程重用这些目标名，未复用其二进制代码，也未读取 MyriadLife-v16 源码。
 
-## 诊断测试
+- `ItemCheck_CheckCanUse_Inner` 只对识别出的 Boss 召唤物放行。
+- 原版 `SummonItemCheck` 正常执行后，通过同一入口按倍率再次触发。
+- 重入保护只包住额外触发，避免重复调用不断递归。
+- 默认总数为 2；可在 TEFManager 设置中关闭或调整为 1–5。
+- 不 Hook `NPC.AI`、`NPC.SpawnBoss` 或 Boss 状态机。
 
-1. 先确认模组关闭 Boss 诊断时可以正常启动并进入世界。
-2. 在 TEFManager 设置中开启“启用 Boss 召唤诊断”，重新启动游戏并进入测试世界。
-3. 等待约 10 秒，使用一次 Boss 召唤物，不要连续多次点击。
-4. 若游戏闪退，导出 TEFManager 日志；检查是否出现 `[BOSS_SUMMON_PROBE] ... callback reached`。
-5. 若未闪退，也导出日志，确认回调是否被触发以及调用次数变化。
+识别列表：Suspicious Looking Eye、Worm Food、Mechanical Skull、Mechanical Worm、Mechanical Eye、Slime Crown、Abeemination、Lihzahrd Power Cell、Bloody Spine、Celestial Sigil、Gelatin Crystal、Deer Thing。
 
-判读：启动时 `hook=installed` 仅表示 Hook 安装成功；`callback reached` 表示执行已进入诊断回调。此版本不执行任何额外召唤。具体崩溃位置仍需结合崩溃日志判断。
+## 测试顺序
+
+1. 用测试世界或存档副本启动，确认模组加载。
+2. 场上没有 Boss 时，用一种已识别的召唤物召唤一次，预期出现设定数量。
+3. Boss 已存在时，再使用同种召唤物，检查限制是否解除以及总数是否按倍率增加。
+4. 分别验证一次普通召唤、已有 Boss 时再次召唤，以及倍率设为 1 的情况。
+5. 若闪退，导出 TEFManager 日志；重点关注 Hook 初始化、`Boss召唤翻倍`、`Boss召唤物重复触发失败`。
+
+本地完成 C 源码语法和链接检查、JSON 与 Actions YAML 校验。当前环境未安装 Android NDK，ARM64 动态库需由 GitHub Actions 工作流构建。
 
 ## GitHub 编译
 
-将此目录作为仓库根目录推送到 GitHub，Actions 会构建 Android `arm64-v8a` 并生成 `MyriadLife-android-arm64.zip`。也可在 Actions 页面手动运行 `Build Android ARM64 Mod`。
+将本目录内容放在仓库根目录并推送到 GitHub，或在 Actions 页面手动运行 `Build Android ARM64 Mod`。工作流产物为 `MyriadLife-android-arm64.zip`。
 
 ## 版本
 
-- `version`: `1.0.14`
-- `versionCode`: `202609282`
+- `version`: `1.1.0`
+- `versionCode`: `202609284`
 - Android ABI: `arm64-v8a`
