@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "mod_core.h"
 #include "mod_logger.h"
@@ -23,10 +24,14 @@ static patch_handle_t g_npc_friendly_field = PATCH_NULL;
 static patch_handle_t g_npc_town_field = PATCH_NULL;
 static patch_handle_t g_new_npc_method = PATCH_NULL;
 static patch_handle_t g_spawn_on_player_method = PATCH_NULL;
+static patch_handle_t g_summon_item_check_method = PATCH_NULL;
 static patch_hook_id_t g_update_hook = PATCH_HOOK_INVALID_ID;
 static patch_hook_id_t g_new_npc_hook = PATCH_HOOK_INVALID_ID;
 static patch_hook_id_t g_spawn_npc_hook = PATCH_HOOK_INVALID_ID;
 static patch_hook_id_t g_spawn_on_player_hook = PATCH_HOOK_INVALID_ID;
+static patch_hook_id_t g_boss_probe_hook = PATCH_HOOK_INVALID_ID;
+static unsigned int g_boss_probe_calls = 0;
+static time_t g_boss_probe_last_log_second = (time_t)-1;
 static bool g_in_natural_spawn = false;
 static bool g_in_boss_spawn = false;
 
@@ -46,9 +51,9 @@ static bool g_applied = false;
 
 static kernel_mod_info_t g_info = {
     .pkg_id = "liuxin.myriadlife",
-    .version_code = 202609281,
+    .version_code = 202609282,
     .api_version = 1,
-    .version = "1.0.13"
+    .version = "1.0.14"
 };
 
 static void log_msg(mod_log_level_t level, const char* fmt, ...) {
@@ -332,9 +337,56 @@ static void new_npc_postfix(patch_handle_t instance, void** args,
     duplicating = false;
 }
 
+/* Diagnostic only: preserve the original game call and never spawn anything. */
+static bool boss_summon_probe_prefix(patch_handle_t instance, void** args,
+                                     const patch_method_signature_t* signature,
+                                     void* result) {
+    (void)instance;
+    (void)args;
+    (void)signature;
+    (void)result;
+    ++g_boss_probe_calls;
+    time_t now = time(NULL);
+    if (g_boss_probe_calls == 1 ||
+        (now != (time_t)-1 && now != g_boss_probe_last_log_second)) {
+        log_msg(MOD_LOG_LEVEL_INFO,
+                "[BOSS_SUMMON_PROBE] SummonItemCheck callback reached; calls=%u",
+                g_boss_probe_calls);
+        g_boss_probe_last_log_second = now;
+    }
+    return true;
+}
+
 static void init_mod(kernel_mod_handle_t* handle) {
     if (!handle) return;
     load_config(handle->private_dir);
+
+    if (g_enable_boss) {
+        patch_handle_t player_type = patchlib_type_get_type("Terraria", "Player");
+        if (player_type) {
+            g_summon_item_check_method =
+                patchlib_type_get_method_by_param_count(player_type, "SummonItemCheck", 1);
+            if (g_summon_item_check_method &&
+                !patchlib_method_is_instance(g_summon_item_check_method)) {
+                patchlib_free(g_summon_item_check_method);
+                g_summon_item_check_method = PATCH_NULL;
+            }
+            if (g_summon_item_check_method) {
+                g_boss_probe_hook = patchlib_install_prepost_hook(
+                    g_summon_item_check_method, boss_summon_probe_prefix, NULL);
+            }
+            patchlib_free(player_type);
+        }
+        log_msg(g_boss_probe_hook != PATCH_HOOK_INVALID_ID
+                    ? MOD_LOG_LEVEL_INFO : MOD_LOG_LEVEL_WARNING,
+                "[BOSS_SUMMON_PROBE] enabled=%s method=%s hook=%s; no duplicate spawn or bypass",
+                g_enable_boss ? "true" : "false",
+                g_summon_item_check_method ? "found" : "missing",
+                g_boss_probe_hook != PATCH_HOOK_INVALID_ID ? "installed" : "failed");
+    } else {
+        log_msg(MOD_LOG_LEVEL_INFO,
+                "[BOSS_SUMMON_PROBE] disabled; no Boss summon Hook installed");
+    }
 
     patch_handle_t npc_type = patchlib_type_get_type("Terraria", "NPC");
     if (!npc_type) {
@@ -386,6 +438,9 @@ static void cleanup_mod(kernel_mod_handle_t* handle) {
     if (g_spawn_on_player_hook != PATCH_HOOK_INVALID_ID) {
         patchlib_uninstall_hook(g_spawn_on_player_hook);
     }
+    if (g_boss_probe_hook != PATCH_HOOK_INVALID_ID) {
+        patchlib_uninstall_hook(g_boss_probe_hook);
+    }
 
     patchlib_free(g_max_spawns_field);
     patchlib_free(g_spawn_rate_field);
@@ -396,6 +451,7 @@ static void cleanup_mod(kernel_mod_handle_t* handle) {
     patchlib_free(g_npc_town_field);
     patchlib_free(g_new_npc_method);
     patchlib_free(g_spawn_on_player_method);
+    patchlib_free(g_summon_item_check_method);
 
     g_max_spawns_field = PATCH_NULL;
     g_spawn_rate_field = PATCH_NULL;
@@ -403,6 +459,10 @@ static void cleanup_mod(kernel_mod_handle_t* handle) {
     g_new_npc_hook = PATCH_HOOK_INVALID_ID;
     g_spawn_npc_hook = PATCH_HOOK_INVALID_ID;
     g_spawn_on_player_hook = PATCH_HOOK_INVALID_ID;
+    g_boss_probe_hook = PATCH_HOOK_INVALID_ID;
+    g_summon_item_check_method = PATCH_NULL;
+    g_boss_probe_calls = 0;
+    g_boss_probe_last_log_second = (time_t)-1;
     g_base_max_spawns = 0;
     g_base_spawn_rate = 0;
     g_applied = false;

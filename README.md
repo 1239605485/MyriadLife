@@ -1,43 +1,32 @@
-# 万灵繁生（MyriadLife）
+# 万灵繁生 v1.0.14（Boss 召唤诊断版）
 
-这是一个 TEFKernel Android ARM64 模组工程（v1.0.13 崩溃隔离版）。此版本暂时关闭 Boss 倍率，普通生物生成设置保留。默认将 Terraria 的 `defaultMaxSpawns` 提高到原来的 5 倍，并把 `defaultSpawnRate` 降低到原来的五分之一。
+本版本基于 v1.0.13 崩溃隔离工程，仅增加一个可选诊断 Hook，目的是区分闪退发生在 Boss 召唤 Hook 安装/触发阶段，还是后续重复召唤逻辑阶段。
 
-设置界面由 `Info.json` 声明，TEFManager 会把设置保存到模组私有目录的 `config.json`：
+## 本版本行为
 
-```json
-{
-  "schemaVersion": 1,
-  "values": {
-    "spawn_multiplier": 5
-  }
-}
-```
+- 普通敌怪生成设置沿用 v1.0.13。
+- “启用 Boss 召唤诊断”默认关闭。
+- 开启后只在 `Player.SummonItemCheck` 前写入 `[BOSS_SUMMON_PROBE]` 日志，然后继续执行原版方法。
+- 不重复调用 `SummonItemCheck`，不生成额外 Boss，也不绕过原版 Boss 召唤限制。
+- Boss 倍率设置在本诊断版本中不生效。
+- 不使用此前导致闪退的 v16 源码。
 
-## GitHub Actions 编译
+## 诊断测试
 
-这是一个可直接上传到 GitHub 的完整工程，不需要提交本地 `build-*` 目录。新建 GitHub 仓库后上传本目录全部文件，推送到 `main` 或 `master` 分支，Actions 会自动安装 Android SDK、NDK 27.2 和 CMake 3.22.1，编译 `arm64-v8a`，并生成与 TEFManager 发布包一致的 ZIP：
+1. 先确认模组关闭 Boss 诊断时可以正常启动并进入世界。
+2. 在 TEFManager 设置中开启“启用 Boss 召唤诊断”，重新启动游戏并进入测试世界。
+3. 等待约 10 秒，使用一次 Boss 召唤物，不要连续多次点击。
+4. 若游戏闪退，导出 TEFManager 日志；检查是否出现 `[BOSS_SUMMON_PROBE] ... callback reached`。
+5. 若未闪退，也导出日志，确认回调是否被触发以及调用次数变化。
 
-```text
-Info.json
-Manifest.json
-MyriadLife.json
-Resources/lib/libMyriadLife.android.arm64.so
-```
+判读：启动时 `hook=installed` 仅表示 Hook 安装成功；`callback reached` 表示执行已进入诊断回调。此版本不执行任何额外召唤。具体崩溃位置仍需结合崩溃日志判断。
 
-编译完成后，在 GitHub 的 Actions → Build Android ARM64 Mod → Artifacts 下载 `MyriadLife-android-arm64`。
+## GitHub 编译
 
-本地手动编译时，需要 Android NDK 和 CMake：
+将此目录作为仓库根目录推送到 GitHub，Actions 会构建 Android `arm64-v8a` 并生成 `MyriadLife-android-arm64.zip`。也可在 Actions 页面手动运行 `Build Android ARM64 Mod`。
 
-```powershell
-$ndk = "$env:ANDROID_NDK_HOME"
-$cmake = "cmake"
-cmake -S . -B build-arm64 -G Ninja `
-  -DCMAKE_BUILD_TYPE=Release `
-  -DCMAKE_TOOLCHAIN_FILE="$ndk/build/cmake/android.toolchain.cmake" `
-  -DANDROID_ABI=arm64-v8a `
-  -DANDROID_PLATFORM=android-21
-cmake --build build-arm64 --config Release
-```
+## 版本
 
-编译产物 `libMyriadLife.so` 放入发布包时需要改名为：
-`Resources/lib/libMyriadLife.android.arm64.so`
+- `version`: `1.0.14`
+- `versionCode`: `202609282`
+- Android ABI: `arm64-v8a`
