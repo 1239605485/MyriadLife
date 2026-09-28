@@ -36,33 +36,43 @@ jobs:
 
       - name: Configure
         shell: bash
+        working-directory: ${{ github.workspace }}
         run: |
-          "$ANDROID_CMAKE_HOME/bin/cmake" -S . -B build-arm64 -G Ninja \\
-            -DCMAKE_BUILD_TYPE=Release \\
-            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \\
-            -DANDROID_ABI=arm64-v8a \\
+          cmake_args=(
+            -S "$GITHUB_WORKSPACE"
+            -B "$GITHUB_WORKSPACE/build-arm64"
+            -G Ninja
+            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake"
+            -DANDROID_ABI=arm64-v8a
             -DANDROID_PLATFORM=android-21
+          )
+          "$ANDROID_CMAKE_HOME/bin/cmake" "${cmake_args[@]}"
 
       - name: Build
         shell: bash
+        working-directory: ${{ github.workspace }}
         run: |
-          "$ANDROID_CMAKE_HOME/bin/cmake" --build build-arm64 --config Release
+          "$ANDROID_CMAKE_HOME/bin/cmake" --build "$GITHUB_WORKSPACE/build-arm64" --config Release
 
       - name: Verify ARM64 library
         shell: bash
+        working-directory: ${{ github.workspace }}
         run: |
-          test -s build-arm64/libMyriadLife.so
-          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build-arm64/libMyriadLife.so | grep -q 'AArch64'
+          library="$GITHUB_WORKSPACE/build-arm64/libMyriadLife.so"
+          test -s "$library"
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$library" | grep -q 'AArch64'
 
       - name: Assemble package
         shell: bash
+        working-directory: ${{ github.workspace }}
         run: |
-          mkdir -p package/Resources/lib
-          cp Info.json Manifest.json MyriadLife.json package/
-          cp build-arm64/libMyriadLife.so \\
-            package/Resources/lib/libMyriadLife.android.arm64.so
-          cd package
-          zip -r ../MyriadLife-android-arm64.zip .
+          mkdir -p "$GITHUB_WORKSPACE/package/Resources/lib"
+          cp "$GITHUB_WORKSPACE/Info.json" "$GITHUB_WORKSPACE/Manifest.json" "$GITHUB_WORKSPACE/MyriadLife.json" "$GITHUB_WORKSPACE/package/"
+          cp "$GITHUB_WORKSPACE/build-arm64/libMyriadLife.so" \
+            "$GITHUB_WORKSPACE/package/Resources/lib/libMyriadLife.android.arm64.so"
+          cd "$GITHUB_WORKSPACE/package"
+          zip -r "$GITHUB_WORKSPACE/MyriadLife-android-arm64.zip" .
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
