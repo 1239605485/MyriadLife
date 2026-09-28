@@ -9,34 +9,26 @@
 #include "tefkernel/patchlib/field.h"
 #include "tefkernel/patchlib/method.h"
 #include "tefkernel/patchlib/type.h"
-#include "tefkernel/patchlib/struct/array.h"
 
 __attribute__((visibility("default")))
 void (*mod_logger_write)(mod_log_level_t, const char*, const char*, ...) = NULL;
 
 static patch_handle_t g_max_spawns_field = PATCH_NULL;
 static patch_handle_t g_spawn_rate_field = PATCH_NULL;
-static patch_handle_t g_main_npc_array_field = PATCH_NULL;
-static patch_handle_t g_npc_active_field = PATCH_NULL;
-static patch_handle_t g_npc_boss_field = PATCH_NULL;
-static patch_handle_t g_npc_friendly_field = PATCH_NULL;
-static patch_handle_t g_npc_town_field = PATCH_NULL;
-static patch_handle_t g_new_npc_method = PATCH_NULL;
-static patch_handle_t g_spawn_on_player_method = PATCH_NULL;
+static patch_handle_t g_summon_item_check_method = PATCH_NULL;
 static patch_hook_id_t g_update_hook = PATCH_HOOK_INVALID_ID;
-static patch_hook_id_t g_new_npc_hook = PATCH_HOOK_INVALID_ID;
-static patch_hook_id_t g_spawn_npc_hook = PATCH_HOOK_INVALID_ID;
-static patch_hook_id_t g_spawn_on_player_hook = PATCH_HOOK_INVALID_ID;
-static bool g_in_natural_spawn = false;
+static patch_hook_id_t g_summon_item_check_hook = PATCH_HOOK_INVALID_ID;
+static patch_hook_id_t g_can_use_inner_hook = PATCH_HOOK_INVALID_ID;
 static bool g_in_boss_spawn = false;
+static bool g_in_boss_duplicate = false;
 
 static int g_multiplier = 5;
-static int g_boss_multiplier = 5;
+static int g_boss_multiplier = 2;
 static int g_event_multiplier = 5;
 static int g_friendly_multiplier = 1;
 static int g_total_npc_limit = 200;
 static bool g_enable_normal = true;
-static bool g_enable_boss = false;
+static bool g_enable_boss = true;
 static bool g_enable_event = false;
 static bool g_enable_friendly = false;
 static bool g_enable_total_limit = false;
@@ -46,9 +38,9 @@ static bool g_applied = false;
 
 static kernel_mod_info_t g_info = {
     .pkg_id = "liuxin.myriadlife",
-    .version_code = 202609220,
+    .version_code = 202609280,
     .api_version = 1,
-    .version = "1.0.0"
+    .version = "1.0.1"
 };
 
 static void log_msg(mod_log_level_t level, const char* fmt, ...) {
@@ -198,138 +190,34 @@ static void main_update_postfix(patch_handle_t instance, void** args,
     apply_spawn_multiplier();
 }
 
-static int active_npc_count(void) {
-    if (!g_main_npc_array_field || !g_npc_active_field) return 0;
-    patch_handle_t array = PATCH_NULL;
-    patchlib_field_get_value(g_main_npc_array_field, PATCH_NULL, &array);
-    if (!array) return 0;
-    size_t length = patchlib_array_length(array);
-    int count = 0;
-    for (size_t i = 0; i < length; ++i) {
-        patch_handle_t npc = PATCH_NULL;
-        bool active = false;
-        if (patchlib_array_at(array, i, &npc) && npc) {
-            patchlib_field_get_value(g_npc_active_field, npc, &active);
-            if (active) ++count;
-        }
-    }
-    return count;
+static bool can_use_inner_prefix(patch_handle_t instance, void** args,
+                                const patch_method_signature_t* signature,
+                                void* result) {
+    (void)instance; (void)args; (void)signature;
+    if (!g_in_boss_duplicate || !result) return true;
+    *(bool*)result = true;
+    return false;
 }
 
-static bool new_npc_prefix(patch_handle_t instance, void** args,
-                           const patch_method_signature_t* signature,
-                           void* result) {
-    (void)instance; (void)signature;
-    if (!args || !g_enable_total_limit || g_total_npc_limit <= 0) return true;
-    if (active_npc_count() >= g_total_npc_limit) {
-        if (result) *(int*)result = -1;
-        return false;
-    }
-    return true;
-}
-
-static bool spawn_npc_prefix(patch_handle_t instance, void** args,
-                             const patch_method_signature_t* signature,
-                             void* result) {
-    (void)instance; (void)args; (void)signature; (void)result;
-    g_in_natural_spawn = true;
-    return true;
-}
-
-static void spawn_npc_postfix(patch_handle_t instance, void** args,
-                              void* result,
-                              const patch_method_signature_t* signature) {
-    (void)instance; (void)args; (void)result; (void)signature;
-    g_in_natural_spawn = false;
-}
-
-static bool is_summonable_boss_type(int npc_type) {
-    switch (npc_type) {
-        case 4:   /* Eye of Cthulhu */
-        case 13:  /* Eater of Worlds */
-        case 35:  /* Skeletron */
-        case 50:  /* King Slime */
-        case 113: /* Wall of Flesh */
-        case 125: /* Retinazer */
-        case 126: /* Spazmatism */
-        case 127: /* Skeletron Prime */
-        case 134: /* The Destroyer */
-        case 222: /* Plantera */
-        case 245: /* Golem */
-        case 262: /* Queen Bee */
-        case 266: /* Brain of Cthulhu */
-        case 398: /* Duke Fishron */
-        case 439: /* Lunatic Cultist */
-        case 657: /* Empress of Light */
-        case 668: /* Queen Slime */
-        case 636: /* Deerclops */
-            return true;
-        default:
-            return false;
-    }
-}
-
-static bool spawn_on_player_prefix(patch_handle_t instance, void** args,
-                                   const patch_method_signature_t* signature,
-                                   void* result) {
-    (void)instance; (void)signature; (void)result;
-    if (g_in_boss_spawn || !g_enable_boss || !args || !args[1] ||
-        !g_spawn_on_player_method) return true;
-
-    int npc_type = *(int*)args[1];
-    if (!is_summonable_boss_type(npc_type)) return true;
+static void summon_item_check_postfix(patch_handle_t instance, void** args,
+                                      void* result,
+                                      const patch_method_signature_t* signature) {
+    (void)result; (void)signature;
+    if (!g_enable_boss || g_in_boss_spawn || !g_summon_item_check_method) return;
 
     int multiplier = g_boss_multiplier;
     if (multiplier < 1) multiplier = 1;
     if (multiplier > 5) multiplier = 5;
-    if (multiplier == 1) return true;
-
-    g_in_boss_spawn = true;
-    for (int i = 1; i < multiplier; ++i) {
-        patchlib_method_invoke_args(g_spawn_on_player_method, PATCH_NULL,
-                                    NULL, args);
-    }
-    g_in_boss_spawn = false;
-    return true;
-}
-
-static void new_npc_postfix(patch_handle_t instance, void** args,
-                            void* result,
-                            const patch_method_signature_t* signature) {
-    (void)instance; (void)signature;
-    static bool duplicating = false;
-    if (duplicating || g_in_natural_spawn || !args || !result || !g_new_npc_method) return;
-    int index = *(int*)result;
-    if (index < 0) return;
-
-    int multiplier = 1;
-    patch_handle_t array = PATCH_NULL;
-    patchlib_field_get_value(g_main_npc_array_field, PATCH_NULL, &array);
-    patch_handle_t npc = PATCH_NULL;
-    if (array) patchlib_array_at(array, (size_t)index, &npc);
-    bool boss = false, friendly = false, town = false;
-    if (npc) {
-        patchlib_field_get_value(g_npc_boss_field, npc, &boss);
-        patchlib_field_get_value(g_npc_friendly_field, npc, &friendly);
-        patchlib_field_get_value(g_npc_town_field, npc, &town);
-    }
-    if (boss) {
-        if (g_enable_boss) multiplier = g_boss_multiplier;
-    } else if (friendly || town) {
-        if (g_enable_friendly) multiplier = g_friendly_multiplier;
-    } else {
-        if (g_enable_event) multiplier = g_event_multiplier;
-    }
     if (multiplier <= 1) return;
 
-    duplicating = true;
+    g_in_boss_spawn = true;
+    g_in_boss_duplicate = true;
     for (int i = 1; i < multiplier; ++i) {
-        if (g_enable_total_limit && active_npc_count() >= g_total_npc_limit) break;
-        int duplicate_result = -1;
-        patchlib_method_invoke_args(g_new_npc_method, PATCH_NULL,
-                                    &duplicate_result, args);
+        patchlib_method_invoke_args(g_summon_item_check_method, instance,
+                                    NULL, args);
     }
-    duplicating = false;
+    g_in_boss_duplicate = false;
+    g_in_boss_spawn = false;
 }
 
 static void init_mod(kernel_mod_handle_t* handle) {
@@ -344,13 +232,6 @@ static void init_mod(kernel_mod_handle_t* handle) {
 
     g_max_spawns_field = patchlib_type_get_field(npc_type, "defaultMaxSpawns");
     g_spawn_rate_field = patchlib_type_get_field(npc_type, "defaultSpawnRate");
-    g_npc_active_field = patchlib_type_get_field(npc_type, "active");
-    g_npc_boss_field = patchlib_type_get_field(npc_type, "boss");
-    g_npc_friendly_field = patchlib_type_get_field(npc_type, "friendly");
-    g_npc_town_field = patchlib_type_get_field(npc_type, "townNPC");
-
-    patch_handle_t main_type = patchlib_type_get_type("Terraria", "Main");
-    if (main_type) g_main_npc_array_field = patchlib_type_get_field(main_type, "npc");
 
     patch_handle_t update_method =
         patchlib_type_get_method_by_param_count(npc_type, "UpdateFoundActiveNPCs", 0);
@@ -359,8 +240,32 @@ static void init_mod(kernel_mod_handle_t* handle) {
             update_method, NULL, main_update_postfix);
     }
     patchlib_free(update_method);
+
+    /* Mirror the reference mod's approach: duplicate through the player's
+       summon-item path and bypass the boss-present gate only during repeats. */
+    patch_handle_t player_type = patchlib_type_get_type("Terraria", "Player");
+    if (player_type) {
+        g_summon_item_check_method =
+            patchlib_type_get_method_by_param_count(player_type, "SummonItemCheck", 1);
+        patch_handle_t can_use_method =
+            patchlib_type_get_method_by_param_count(player_type, "ItemCheck_CheckCanUse_Inner", 1);
+        if (g_summon_item_check_method) {
+            g_summon_item_check_hook = patchlib_install_prepost_hook(
+                g_summon_item_check_method, NULL, summon_item_check_postfix);
+        }
+        if (can_use_method) {
+            g_can_use_inner_hook = patchlib_install_prepost_hook(
+                can_use_method, can_use_inner_prefix, NULL);
+        }
+        patchlib_free(can_use_method);
+        patchlib_free(player_type);
+    }
+    if (!g_summon_item_check_method || g_summon_item_check_hook == PATCH_HOOK_INVALID_ID) {
+        log_msg(MOD_LOG_LEVEL_WARNING, "Boss召唤入口未找到，Boss召唤翻倍未启用");
+    } else {
+        log_msg(MOD_LOG_LEVEL_INFO, "Boss召唤翻倍钩子已安装，倍率=%d", g_boss_multiplier);
+    }
     patchlib_free(npc_type);
-    patchlib_free(main_type);
 
     if (!g_max_spawns_field || !g_spawn_rate_field) {
         log_msg(MOD_LOG_LEVEL_ERROR,
@@ -377,32 +282,22 @@ static void cleanup_mod(kernel_mod_handle_t* handle) {
     if (g_update_hook != PATCH_HOOK_INVALID_ID) {
         patchlib_uninstall_hook(g_update_hook);
     }
-    if (g_new_npc_hook != PATCH_HOOK_INVALID_ID) {
-        patchlib_uninstall_hook(g_new_npc_hook);
+    if (g_summon_item_check_hook != PATCH_HOOK_INVALID_ID) {
+        patchlib_uninstall_hook(g_summon_item_check_hook);
     }
-    if (g_spawn_npc_hook != PATCH_HOOK_INVALID_ID) {
-        patchlib_uninstall_hook(g_spawn_npc_hook);
-    }
-    if (g_spawn_on_player_hook != PATCH_HOOK_INVALID_ID) {
-        patchlib_uninstall_hook(g_spawn_on_player_hook);
+    if (g_can_use_inner_hook != PATCH_HOOK_INVALID_ID) {
+        patchlib_uninstall_hook(g_can_use_inner_hook);
     }
 
     patchlib_free(g_max_spawns_field);
     patchlib_free(g_spawn_rate_field);
-    patchlib_free(g_main_npc_array_field);
-    patchlib_free(g_npc_active_field);
-    patchlib_free(g_npc_boss_field);
-    patchlib_free(g_npc_friendly_field);
-    patchlib_free(g_npc_town_field);
-    patchlib_free(g_new_npc_method);
-    patchlib_free(g_spawn_on_player_method);
+    patchlib_free(g_summon_item_check_method);
 
     g_max_spawns_field = PATCH_NULL;
     g_spawn_rate_field = PATCH_NULL;
     g_update_hook = PATCH_HOOK_INVALID_ID;
-    g_new_npc_hook = PATCH_HOOK_INVALID_ID;
-    g_spawn_npc_hook = PATCH_HOOK_INVALID_ID;
-    g_spawn_on_player_hook = PATCH_HOOK_INVALID_ID;
+    g_summon_item_check_hook = PATCH_HOOK_INVALID_ID;
+    g_can_use_inner_hook = PATCH_HOOK_INVALID_ID;
     g_base_max_spawns = 0;
     g_base_spawn_rate = 0;
     g_applied = false;
