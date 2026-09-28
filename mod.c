@@ -51,9 +51,9 @@ static bool g_applied = false;
 
 static kernel_mod_info_t g_info = {
     .pkg_id = "liuxin.myriadlife",
-    .version_code = 202609284,
+    .version_code = 202609285,
     .api_version = 1,
-    .version = "1.1.0"
+    .version = "1.1.1"
 };
 
 static void log_msg(mod_log_level_t level, const char* fmt, ...) {
@@ -139,7 +139,9 @@ static void load_config(const char* private_dir) {
     if (g_total_npc_limit < 20) g_total_npc_limit = 20;
     if (g_total_npc_limit > 200) g_total_npc_limit = 200;
     g_enable_normal = read_bool_setting(text, "enable_normal", g_enable_normal);
-    g_enable_boss = read_bool_setting(text, "enable_boss", g_enable_boss);
+    /* A new key prevents a persisted test-era disable from silently
+     * turning off the redesigned Boss summon route after an upgrade. */
+    g_enable_boss = read_bool_setting(text, "enable_boss_summon", g_enable_boss);
     g_enable_event = read_bool_setting(text, "enable_event", g_enable_event);
     g_enable_friendly = read_bool_setting(text, "enable_friendly", g_enable_friendly);
     g_enable_total_limit = read_bool_setting(text, "enable_total_limit", g_enable_total_limit);

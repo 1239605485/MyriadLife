@@ -1,10 +1,12 @@
-# 万灵繁生 v1.1.0（Boss 召唤重构版）
+# 万灵繁生 v1.1.1（Boss 召唤设置迁移版）
 
 Android ARM64 / Terraria 1.4.5.8.x / TEFKernel 工程。
 
 ## Boss 召唤实现
 
 此版本按“解除 Boss 召唤检查，再重复走原版召唤物入口”的路线实现，参考用户提供的“强制召唤”ARM64 模组。对该模组二进制的静态检查确认其目标包含 `Player.SummonItemCheck`、`Player.ItemCheck_CheckCanUse_Inner` 和 `Item.type`。本工程重用这些目标名，未复用其二进制代码，也未读取 MyriadLife-v16 源码。
+
+v1.1.1 将 Boss 开关键名更新为 `enable_boss_summon`，避免旧版排查闪退时保存的关闭状态阻止新 Hook 安装。更新后默认启用；可在 TEFManager 设置中关闭。
 
 - `ItemCheck_CheckCanUse_Inner` 只对识别出的 Boss 召唤物放行。
 - 原版 `SummonItemCheck` 正常执行后，通过同一入口按倍率再次触发。
@@ -30,6 +32,6 @@ Android ARM64 / Terraria 1.4.5.8.x / TEFKernel 工程。
 
 ## 版本
 
-- `version`: `1.1.0`
-- `versionCode`: `202609284`
+- `version`: `1.1.1`
+- `versionCode`: `202609285`
 - Android ABI: `arm64-v8a`
