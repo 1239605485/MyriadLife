@@ -1,12 +1,12 @@
-# 万灵繁生 v1.1.2（Boss Hook 签名修正版）
+# 万灵繁生 v1.1.3（Boss Hook 查找诊断版）
 
 Android ARM64 / Terraria 1.4.5.8.x / TEFKernel 工程。
 
 ## Boss 召唤实现
 
-此版本按“解除 Boss 召唤检查，再重复走原版召唤物入口”的路线实现，参考用户提供的“强制召唤”ARM64 模组。对该模组二进制的静态检查确认其目标包含 `Player.SummonItemCheck`、`Player.ItemCheck_CheckCanUse_Inner` 和 `Item.type`。本工程重用这些目标名，未复用其二进制代码，也未读取 MyriadLife-v16 源码。
+此版本继续按“解除 Boss 召唤检查，再重复走原版召唤物入口”的路线实现，参考用户提供的“强制召唤”ARM64 模组。对该模组二进制的静态检查确认其目标包含 `Player.SummonItemCheck`、`Player.ItemCheck_CheckCanUse_Inner` 和 `Item.type`。本工程重用这些目标名，未复用其二进制代码，也未读取 MyriadLife-v16 源码。
 
-v1.1.1 将 Boss 开关键名更新为 `enable_boss_summon`，避免旧版排查闪退时保存的关闭状态阻止新 Hook 安装。v1.1.2 将 `ItemCheck_CheckCanUse_Inner` 按 1 个参数查找，直接从 `args[0]` 读取 `Item.type`，并独立安装可用性 Hook 和重复召唤 Hook。更新后默认启用；可在 TEFManager 设置中关闭。
+最新日志显示 Boss 目标方法的 Hook 注册数量与预期不符，但没有记录目标名称。v1.1.3 改为按方法名获取目标，再记录两种方法的查找结果、参数数和 Hook ID；重复调用日志也记录实际识别的物品与调用次数，便于根据下一份运行日志定位。
 
 - `ItemCheck_CheckCanUse_Inner` 只对识别出的 Boss 召唤物放行。
 - 原版 `SummonItemCheck` 正常执行后，通过同一入口按倍率再次触发。
@@ -32,6 +32,6 @@ v1.1.1 将 Boss 开关键名更新为 `enable_boss_summon`，避免旧版排查�
 
 ## 版本
 
-- `version`: `1.1.2`
-- `versionCode`: `202609286`
+- `version`: `1.1.3`
+- `versionCode`: `202609287`
 - Android ABI: `arm64-v8a`

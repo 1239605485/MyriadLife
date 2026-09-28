@@ -22,6 +22,8 @@ static patch_handle_t g_npc_boss_field = PATCH_NULL;
 static patch_handle_t g_npc_friendly_field = PATCH_NULL;
 static patch_handle_t g_npc_town_field = PATCH_NULL;
 static patch_handle_t g_item_type_field = PATCH_NULL;
+static patch_handle_t g_player_inventory_field = PATCH_NULL;
+static patch_handle_t g_player_selected_item_field = PATCH_NULL;
 static patch_handle_t g_new_npc_method = PATCH_NULL;
 static patch_handle_t g_spawn_on_player_method = PATCH_NULL;
 static patch_handle_t g_summon_item_check_method = PATCH_NULL;
@@ -49,9 +51,9 @@ static bool g_applied = false;
 
 static kernel_mod_info_t g_info = {
     .pkg_id = "liuxin.myriadlife",
-    .version_code = 202609286,
+    .version_code = 202609287,
     .api_version = 1,
-    .version = "1.1.2"
+    .version = "1.1.3"
 };
 
 static void log_msg(mod_log_level_t level, const char* fmt, ...) {
@@ -224,19 +226,46 @@ static bool is_boss_summon_item(int item_type) {
     }
 }
 
+static bool is_current_boss_summon_item(patch_handle_t instance, void** args,
+                                        const patch_method_signature_t* signature,
+                                        int* item_type_out) {
+    if (!g_item_type_field) return false;
+
+    patch_handle_t item = PATCH_NULL;
+    if (signature && signature->arg_types.size > 0 && args && args[0]) {
+        item = (patch_handle_t)args[0];
+    } else if (instance && g_player_inventory_field &&
+               g_player_selected_item_field) {
+        patch_handle_t inventory = PATCH_NULL;
+        int selected_item = -1;
+        patchlib_field_get_value(g_player_inventory_field, instance, &inventory);
+        patchlib_field_get_value(g_player_selected_item_field, instance,
+                                 &selected_item);
+        if (!inventory || selected_item < 0 ||
+            (size_t)selected_item >= patchlib_array_length(inventory))
+            return false;
+        if (!patchlib_array_at(inventory, (size_t)selected_item, &item) || !item)
+            return false;
+    }
+    if (!item) return false;
+
+    int item_type = 0;
+    patchlib_field_get_value(g_item_type_field, item, &item_type);
+    if (item_type_out) *item_type_out = item_type;
+    return is_boss_summon_item(item_type);
+}
+
 /* The reference mod reads Item.type from args[0] in this callback. */
 static bool boss_summon_can_use_prefix(patch_handle_t instance, void** args,
                                        const patch_method_signature_t* signature,
                                        void* result) {
-    (void)instance;
     (void)signature;
-    if (!g_enable_boss || !args || !args[0] || !result || !g_item_type_field)
+    if (!g_enable_boss || !result)
         return true;
 
-    patch_handle_t item = (patch_handle_t)args[0];
     int item_type = 0;
-    patchlib_field_get_value(g_item_type_field, item, &item_type);
-    if (!is_boss_summon_item(item_type)) return true;
+    if (!is_current_boss_summon_item(instance, args, signature, &item_type))
+        return true;
 
     *(bool*)result = true;
     log_msg(MOD_LOG_LEVEL_INFO,
@@ -248,9 +277,11 @@ static bool boss_summon_can_use_prefix(patch_handle_t instance, void** args,
 static void boss_summon_postfix(patch_handle_t instance, void** args,
                                 void* result,
                                 const patch_method_signature_t* signature) {
-    (void)signature;
+    (void)result;
+    int item_type = 0;
     if (!g_enable_boss || g_in_boss_duplicate || !instance ||
-        !g_summon_item_check_method || !args || !result || !*(bool*)result)
+        !g_summon_item_check_method ||
+        !is_current_boss_summon_item(instance, args, signature, &item_type))
         return;
 
     int multiplier = g_boss_multiplier;
@@ -259,6 +290,7 @@ static void boss_summon_postfix(patch_handle_t instance, void** args,
     if (multiplier <= 1) return;
 
     g_in_boss_duplicate = true;
+    int invoked = 0;
     for (int i = 1; i < multiplier; ++i) {
         if (!patchlib_method_invoke_args(g_summon_item_check_method,
                                          instance, NULL, args)) {
@@ -266,8 +298,12 @@ static void boss_summon_postfix(patch_handle_t instance, void** args,
                     "Boss召唤物重复触发失败: copy=%d", i + 1);
             break;
         }
+        ++invoked;
     }
     g_in_boss_duplicate = false;
+    log_msg(MOD_LOG_LEVEL_INFO,
+            "Boss召唤重复调用完成: item_type=%d, requested=%d, invoked=%d",
+            item_type, multiplier, invoked);
 }
 
 static void init_mod(kernel_mod_handle_t* handle) {
@@ -280,20 +316,34 @@ static void init_mod(kernel_mod_handle_t* handle) {
         if (item_class) g_item_type_field = patchlib_type_get_field(item_class, "type");
         if (player_type) {
             g_summon_item_check_method =
-                patchlib_type_get_method_by_param_count(player_type, "SummonItemCheck", 1);
-            patch_handle_t can_use_method =
-                patchlib_type_get_method_by_param_count(
-                    player_type, "ItemCheck_CheckCanUse_Inner", 1);
+                patchlib_type_get_method(player_type, "SummonItemCheck");
+            patch_handle_t can_use_method = patchlib_type_get_method(
+                player_type, "ItemCheck_CheckCanUse_Inner");
+            g_player_inventory_field =
+                patchlib_type_get_field(player_type, "inventory");
+            g_player_selected_item_field =
+                patchlib_type_get_field(player_type, "selectedItem");
             if (g_summon_item_check_method &&
                 patchlib_method_is_instance(g_summon_item_check_method)) {
                 g_boss_summon_hook = patchlib_install_prepost_hook(
                     g_summon_item_check_method, NULL, boss_summon_postfix);
             }
-            if (can_use_method && g_item_type_field &&
-                patchlib_method_is_instance(can_use_method)) {
+            if (can_use_method && patchlib_method_is_instance(can_use_method)) {
                 g_boss_can_use_hook = patchlib_install_prepost_hook(
                     can_use_method, boss_summon_can_use_prefix, NULL);
             }
+            log_msg(MOD_LOG_LEVEL_INFO,
+                    "Boss Hook 查找结果: SummonItemCheck=%s(params=%d, hook=%d), "
+                    "ItemCheck_CheckCanUse_Inner=%s(params=%d, hook=%d), "
+                    "Item.type=%s",
+                    g_summon_item_check_method ? "found" : "missing",
+                    g_summon_item_check_method
+                        ? patchlib_method_get_param_count(g_summon_item_check_method) : -1,
+                    (int)g_boss_summon_hook,
+                    can_use_method ? "found" : "missing",
+                    can_use_method ? patchlib_method_get_param_count(can_use_method) : -1,
+                    (int)g_boss_can_use_hook,
+                    g_item_type_field ? "found" : "missing");
             patchlib_free(can_use_method);
             patchlib_free(player_type);
         }
@@ -379,6 +429,8 @@ static void cleanup_mod(kernel_mod_handle_t* handle) {
     patchlib_free(g_npc_town_field);
     patchlib_free(g_new_npc_method);
     patchlib_free(g_spawn_on_player_method);
+    patchlib_free(g_player_inventory_field);
+    patchlib_free(g_player_selected_item_field);
     patchlib_free(g_item_type_field);
     patchlib_free(g_summon_item_check_method);
 
@@ -391,6 +443,8 @@ static void cleanup_mod(kernel_mod_handle_t* handle) {
     g_boss_summon_hook = PATCH_HOOK_INVALID_ID;
     g_boss_can_use_hook = PATCH_HOOK_INVALID_ID;
     g_item_type_field = PATCH_NULL;
+    g_player_inventory_field = PATCH_NULL;
+    g_player_selected_item_field = PATCH_NULL;
     g_summon_item_check_method = PATCH_NULL;
     g_in_boss_duplicate = false;
     g_base_max_spawns = 0;
