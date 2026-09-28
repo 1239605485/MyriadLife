@@ -1,6 +1,6 @@
 # 万灵繁生（MyriadLife）
 
-这是一个 TEFKernel Android ARM64 模组工程（v1.0.12）。Boss 默认总数为 2 倍，最多 10 只。Boss 复制挂接到经过签名校验的 `NPC.SpawnBoss(int, int, int, int, float, float, float, float)` 入口，在原版生成完成后额外调用原生 Boss 生成入口；不再重复玩家侧 `SummonItemCheck`。参考“强制召唤”放行已有 Boss 时的召唤限制。诊断写入模组私有目录的 `myriadlife_diagnostics.log`。
+这是一个 TEFKernel Android ARM64 模组工程（v1.0.13 崩溃隔离版）。此版本暂时关闭 Boss 倍率，普通生物生成设置保留。默认将 Terraria 的 `defaultMaxSpawns` 提高到原来的 5 倍，并把 `defaultSpawnRate` 降低到原来的五分之一。
 
 设置界面由 `Info.json` 声明，TEFManager 会把设置保存到模组私有目录的 `config.json`：
 
@@ -8,16 +8,14 @@
 {
   "schemaVersion": 1,
   "values": {
-    "spawn_multiplier": 5,
-    "boss_double": true,
-    "boss_multiplier": 2
+    "spawn_multiplier": 5
   }
 }
 ```
 
 ## GitHub Actions 编译
 
-仓库自带 `.github/workflows/build.yml`，使用 `android-actions/setup-android@v4` 避免请求已下架的 `tools` 包。推送到 GitHub 后，Actions 会使用 Android NDK 编译 `arm64-v8a`，并生成与 TEFManager 发布包一致的 ZIP：
+这是一个可直接上传到 GitHub 的完整工程，不需要提交本地 `build-*` 目录。新建 GitHub 仓库后上传本目录全部文件，推送到 `main` 或 `master` 分支，Actions 会自动安装 Android SDK、NDK 27.2 和 CMake 3.22.1，编译 `arm64-v8a`，并生成与 TEFManager 发布包一致的 ZIP：
 
 ```text
 Info.json
@@ -25,6 +23,8 @@ Manifest.json
 MyriadLife.json
 Resources/lib/libMyriadLife.android.arm64.so
 ```
+
+编译完成后，在 GitHub 的 Actions → Build Android ARM64 Mod → Artifacts 下载 `MyriadLife-android-arm64`。
 
 本地手动编译时，需要 Android NDK 和 CMake：
 

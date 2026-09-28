@@ -15,25 +15,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
           packages: platform-tools
-
       - name: Install NDK and CMake
         shell: bash
         run: |
           sdkmanager "platform-tools" "platforms;android-21" "ndk;27.2.12479018" "cmake;3.22.1"
           sudo apt-get update
           sudo apt-get install -y ninja-build zip
-
       - name: Locate Android toolchain
         shell: bash
         run: |
           echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.2.12479018" >> "$GITHUB_ENV"
           echo "ANDROID_CMAKE_HOME=$ANDROID_SDK_ROOT/cmake/3.22.1" >> "$GITHUB_ENV"
-
       - name: Configure
         shell: bash
         working-directory: ${{ github.workspace }}
@@ -48,13 +44,11 @@ jobs:
             -DANDROID_PLATFORM=android-21
           )
           "$ANDROID_CMAKE_HOME/bin/cmake" "${cmake_args[@]}"
-
       - name: Build
         shell: bash
         working-directory: ${{ github.workspace }}
         run: |
           "$ANDROID_CMAKE_HOME/bin/cmake" --build "$GITHUB_WORKSPACE/build-arm64" --config Release
-
       - name: Verify ARM64 library
         shell: bash
         working-directory: ${{ github.workspace }}
@@ -62,7 +56,6 @@ jobs:
           library="$GITHUB_WORKSPACE/build-arm64/libMyriadLife.so"
           test -s "$library"
           "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$library" | grep -q 'AArch64'
-
       - name: Assemble package
         shell: bash
         working-directory: ${{ github.workspace }}
@@ -73,8 +66,7 @@ jobs:
             "$GITHUB_WORKSPACE/package/Resources/lib/libMyriadLife.android.arm64.so"
           cd "$GITHUB_WORKSPACE/package"
           zip -r "$GITHUB_WORKSPACE/MyriadLife-android-arm64.zip" .
-
-      - name: Upload artifacts
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: MyriadLife-android-arm64

@@ -2,8 +2,8 @@
   "pkgId": "liuxin.myriadlife",
   "name": "万灵繁生",
   "author": "liuxin",
-  "version": "1.0.12",
-  "versionCode": 202609280,
+  "version": "1.0.13",
+  "versionCode": 202609281,
   "brieflyDescribe": "提高生物生成上限并缩短生成间隔。",
   "description": "让世界中的生物更加活跃：提高默认生成上限并缩短生成间隔。仅支持 Android ARM64。",
   "features": [
@@ -72,20 +72,20 @@
       "unit": "×"
     },
     {
-      "key": "boss_double",
+      "key": "enable_boss",
       "title": "启用 Boss 倍率",
-      "description": "解除已有 Boss 时的召唤物限制，并允许 Boss 生成时额外生成同类 Boss。",
+      "description": "Boss 倍率在此崩溃隔离版本中关闭。",
       "type": "SWITCH",
-      "defaultValue": true
+      "defaultValue": false
     },
     {
       "key": "boss_multiplier",
       "title": "Boss 生成倍率",
-      "description": "Boss 生成时的数量倍率，最多 10 只。",
+      "description": "Boss 生成时的数量倍率。",
       "type": "INTEGER",
-      "defaultValue": 2,
+      "defaultValue": 1,
       "min": 1,
-      "max": 10,
+      "max": 5,
       "step": 1,
       "unit": "×"
     },

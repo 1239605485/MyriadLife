@@ -1,14 +1,20 @@
 cmake_minimum_required(VERSION 3.22)
 project(MyriadLife C)
 
+if(ANDROID AND NOT ANDROID_ABI STREQUAL "arm64-v8a")
+    message(FATAL_ERROR "MyriadLife supports Android arm64-v8a only")
+endif()
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-
-include_directories(${CMAKE_SOURCE_DIR}/mod-api)
 
 add_library(MyriadLife SHARED
     mod-api/tefkernel/tef_api_imp.c
     mod.c
+)
+
+target_include_directories(MyriadLife PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/mod-api
 )
 
 if(WIN32)
