@@ -19,7 +19,7 @@ Boss 召唤倍率开关和倍率可在 TEFManager 设置中调整（1–5 倍）
 
 这是一个仓库根目录完整、可由 GitHub Actions 编译的工程。把本压缩包解压后，将其中的全部文件和 `.github` 文件夹上传到 GitHub 仓库根目录（不要再套一层 `MyriadLife-main` 文件夹），提交到 `main` 或 `master` 分支。也可以在仓库的 **Actions → Build Android ARM64 Mod → Run workflow** 手动启动。
 
-工作流会安装 Android SDK、NDK 27.2、CMake 3.22.1 和 Ninja，编译 `arm64-v8a`，并检查生成的共享库确实是 AArch64。随后生成适用于 TEFManager 的安装 ZIP：
+工作流使用 `setup-android@v4`，避免旧版动作请求 Google 已移除的 `tools` 包；之后安装 Android SDK、NDK 27.2、CMake 3.22.1 和 Ninja，编译 `arm64-v8a`，并检查生成的共享库确实是 AArch64。随后生成适用于 TEFManager 的安装 ZIP：
 
 ```text
 Info.json
